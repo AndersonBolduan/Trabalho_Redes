@@ -27,6 +27,9 @@ class TCPClientGUI:
         self.ent_port.grid(row=0, column=3, padx=5, sticky="ew")
         self.ent_port.insert(0, "6000")
         
+        # Dica para conexão em rede local
+        tk.Label(conn_frame, text="(Para conexão em rede local, use o IP da máquina do servidor, não 127.0.0.1)", fg="gray").grid(row=1, column=0, columnspan=4, sticky="w")
+        
         conn_frame.columnconfigure(1, weight=1)
 
         action_frame = tk.Frame(self.root, padx=10, pady=5)
@@ -80,10 +83,10 @@ class TCPClientGUI:
         try:
             s = self.get_socket()
             req = {"cmd": "list_req"}
-            s.sendall(json.dumps(req).encode('utf-8'))
+            s.sendall(json.dumps(req).encode("utf-8"))
             
             data = self.receive_full_message(s)
-            resp = json.loads(data.decode('utf-8'))
+            resp = json.loads(data.decode("utf-8"))
             
             if resp.get("cmd") == "list_resp":
                 self.file_listbox.delete(0, tk.END)
@@ -103,7 +106,7 @@ class TCPClientGUI:
         
         with open(file_path, "rb") as f:
             file_bytes = f.read()
-            file_data_b64 = base64.b64encode(file_bytes).decode('utf-8')
+            file_data_b64 = base64.b64encode(file_bytes).decode("utf-8")
             
         try:
             s = self.get_socket()
@@ -113,11 +116,10 @@ class TCPClientGUI:
                 "hash": file_hash,
                 "value": file_data_b64
             }
-            # Enviar usando sendall para garantir que todo o JSON gigante vá
-            s.sendall(json.dumps(req).encode('utf-8'))
+            s.sendall(json.dumps(req).encode("utf-8"))
             
             data = self.receive_full_message(s)
-            resp = json.loads(data.decode('utf-8'))
+            resp = json.loads(data.decode("utf-8"))
             
             if resp.get("status") == "ok":
                 messagebox.showinfo("Sucesso", f"Upload de {file_name} concluído!")
@@ -142,10 +144,10 @@ class TCPClientGUI:
         try:
             s = self.get_socket()
             req = {"cmd": "get_req", "file": file_name}
-            s.sendall(json.dumps(req).encode('utf-8'))
+            s.sendall(json.dumps(req).encode("utf-8"))
             
             data = self.receive_full_message(s)
-            resp = json.loads(data.decode('utf-8'))
+            resp = json.loads(data.decode("utf-8"))
             
             if resp.get("cmd") == "get_resp" and "value" in resp:
                 file_data_b64 = resp.get("value")
