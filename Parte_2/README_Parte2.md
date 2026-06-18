@@ -1,20 +1,22 @@
-# Parte 2 — Cliente e Servidor de Arquivos via TCP
+# Parte 2 — Transferência de Arquivos com TCP
 
-Esta pasta contém a implementação da **Parte 2** do trabalho de Redes de Computadores. A aplicação é composta por dois programas: um **servidor TCP**, responsável por armazenar e enviar arquivos, e um **cliente com interface gráfica**, responsável por listar, enviar e baixar arquivos do servidor.
+Este projeto implementa a **Parte 2** do trabalho de Redes de Computadores. A solução possui dois programas: um **servidor TCP**, que armazena arquivos, e um **cliente com interface gráfica**, que permite listar, enviar e baixar arquivos.
 
-A versão atual foi revisada para facilitar o uso entre **dois computadores diferentes na mesma rede local**, sem depender de alteração manual no Painel de Controle. O servidor agora exibe automaticamente os IPs locais que podem ser usados pelo cliente, o cliente possui um botão para tentar localizar o servidor na rede e a troca de mensagens TCP usa um protocolo mais robusto com cabeçalho de tamanho.
+A versão atual foi revisada para facilitar testes entre **dois computadores diferentes na mesma rede local**. Além da transferência de arquivos, o cliente agora possui botões de **Teste de Conexão TCP**, **Localização Automática do Servidor** e **Diagnóstico**, ajudando a identificar se o problema está no código, no IP, na porta, no firewall ou no isolamento da rede.
 
 ## Arquivos
 
 | Arquivo | Função |
 |---|---|
-| `tcp_server.py` | Programa que deve ser executado no computador que armazenará os arquivos. |
-| `tcp_client.py` | Programa com interface gráfica usado para listar, enviar e baixar arquivos. |
-| `server_storage/` | Pasta criada automaticamente pelo servidor para guardar os arquivos recebidos. |
+| `tcp_server.py` | Programa servidor. Deve ser executado no computador que receberá e armazenará os arquivos. |
+| `tcp_client.py` | Programa cliente com interface gráfica. Deve ser executado no computador que enviará, listará ou baixará arquivos. |
+| `README_Parte2.md` | Este guia de uso e diagnóstico. |
 
-## Como testar no mesmo computador
+## Como executar no mesmo computador
 
-Para testar tudo em uma única máquina, abra dois terminais na pasta da Parte 2. No primeiro terminal, execute o servidor:
+Para testar tudo em uma única máquina, abra dois terminais no VSCode.
+
+No primeiro terminal, execute o servidor:
 
 ```bash
 python tcp_server.py
@@ -26,82 +28,97 @@ No segundo terminal, execute o cliente:
 python tcp_client.py
 ```
 
-Na interface do cliente, mantenha o IP como `127.0.0.1` e a porta como `50000`. Depois clique em **Listar Arquivos**, **Fazer Upload** ou **Fazer Download**.
+No cliente, deixe o IP como `127.0.0.1` e a porta como `50000`. Clique em **Testar Conexão TCP**. Se aparecer a mensagem de sucesso, o cliente está conseguindo conversar com o servidor.
 
-## Como conectar dois computadores na mesma rede
+## Como executar entre dois computadores na mesma rede
 
-No computador que será o servidor, execute:
+No computador que será o **servidor**, execute:
 
 ```bash
 python tcp_server.py
 ```
 
-Ao iniciar, o servidor mostrará uma saída parecida com esta:
+O terminal do servidor mostrará uma tela semelhante a esta:
 
 ```text
-Use, no cliente, um dos IPs abaixo como IP do servidor:
-  - 192.168.1.34:50000
+No cliente, use um dos endereços abaixo como IP do servidor:
+  - 192.168.1.25:50000
 ```
 
-No outro computador, execute:
+No computador que será o **cliente**, execute:
 
 ```bash
 python tcp_client.py
 ```
 
-Na interface do cliente, coloque no campo **IP do Servidor** o IPv4 mostrado no terminal do servidor, por exemplo `192.168.1.34`. A porta deve ser a mesma exibida pelo servidor, por padrão `50000`.
+Na interface gráfica do cliente, digite o IPv4 mostrado no terminal do servidor, por exemplo `192.168.1.25`, mantendo a porta `50000`. Em seguida, clique em **Testar Conexão TCP**.
 
-Você também pode clicar no botão **Localizar Servidor na Rede**. Esse botão envia uma mensagem de descoberta via broadcast UDP na rede local. Se a rede permitir broadcast, o cliente preencherá automaticamente o IP e a porta do servidor.
+> **Atenção:** `127.0.0.1` só funciona quando cliente e servidor estão no mesmo computador. Entre computadores diferentes, sempre use o IPv4 real exibido no terminal do servidor.
 
-## Importante sobre bloqueios de rede
+## O que mudou nesta revisão
 
-Esta versão foi ajustada para funcionar melhor em laboratório, usando uma porta alta (`50000`), escutando em todas as interfaces de rede (`0.0.0.0`) e oferecendo descoberta automática. Mesmo assim, existe um limite técnico: se a política da máquina ou da rede bloquear totalmente conexões de entrada, nenhum código consegue “furar” esse bloqueio sozinho.
-
-Na prática, se outros alunos estão conseguindo sem abrir regra no Painel de Controle, provavelmente a rede permite conexões locais ou o Windows já autorizou o Python anteriormente. Com esta versão, o teste fica mais simples porque o servidor mostra o IP correto e o cliente tenta encontrá-lo automaticamente.
-
-## Comandos úteis
-
-Se quiser usar outra porta, execute o servidor assim:
-
-```bash
-python tcp_server.py --port 50001
-```
-
-Depois, no cliente, use a mesma porta `50001`.
-
-Se quiser mudar a pasta onde os arquivos ficam armazenados no servidor, execute:
-
-```bash
-python tcp_server.py --storage meus_arquivos
-```
-
-## Protocolo de comunicação
-
-A comunicação usa **TCP**. Cada mensagem enviada pelo cliente ou pelo servidor possui duas partes: primeiro, um cabeçalho de 8 bytes informando o tamanho da mensagem; depois, o JSON em UTF-8. Isso evita o problema clássico de tentar ler uma mensagem TCP “pela metade”, principalmente quando o arquivo é grande.
-
-| Operação | Requisição | Resposta |
+| Recurso | O que faz | Por que ajuda |
 |---|---|---|
-| Listar arquivos | `list_req` | `list_resp` com a lista de arquivos. |
-| Enviar arquivo | `put_req` com nome, hash e conteúdo em Base64 | `put_resp` com status `ok` ou `fail`. |
-| Baixar arquivo | `get_req` com o nome do arquivo | `get_resp` com hash e conteúdo em Base64. |
+| Servidor escutando em `0.0.0.0` | Aceita conexões vindas de outras máquinas da rede. | Evita que o servidor fique preso somente ao próprio computador. |
+| Porta padrão `50000` | Usa uma porta alta e menos associada a serviços do sistema. | Reduz conflitos com portas conhecidas. |
+| Botão **Testar Conexão TCP** | Envia um comando `test_req` ao servidor e espera `test_resp`. | Confirma se a conexão TCP está funcionando antes de tentar upload/download. |
+| Botão **Localizar Servidor** | Envia mensagens UDP de descoberta por broadcast. | Pode preencher o IP automaticamente quando a rede permite broadcast. |
+| Botão **Diagnóstico** | Mostra IPs locais e destinos de broadcast testados. | Ajuda a explicar e investigar falhas em laboratório. |
+| Cabeçalho de 8 bytes | Informa o tamanho exato de cada JSON transmitido. | Evita erro com arquivos grandes, pois o receptor sabe exatamente quantos bytes deve ler. |
 
-O conteúdo dos arquivos é convertido para **Base64** para caber dentro do JSON. A integridade é verificada com **SHA-256**: o cliente calcula o hash antes do upload, o servidor recalcula depois de receber, e no download o cliente também confere se o arquivo recebido tem o mesmo hash enviado pelo servidor.
+## Interpretação dos testes
 
-## Passo a passo recomendado para apresentação
+O ponto mais importante é observar o terminal do servidor enquanto o cliente tenta conectar.
 
-Primeiro, abra o servidor no computador principal e mostre que ele está escutando em `0.0.0.0:50000`. Explique que `0.0.0.0` significa que o programa aceita conexões vindas das interfaces de rede da máquina. Em seguida, mostre o IP local impresso no terminal, como `192.168.x.x`, e use esse endereço no cliente executado em outro computador.
+| Situação observada | Significado provável | O que fazer |
+|---|---|---|
+| No cliente, `127.0.0.1` funciona no mesmo PC. | O código e o protocolo estão funcionando localmente. | Use esse teste apenas como validação inicial. |
+| Ao clicar em **Localizar Servidor**, aparece `[UDP] Descoberta recebida` no servidor. | O broadcast UDP chegou ao servidor. | A descoberta automática deve funcionar ou está muito próxima de funcionar. |
+| Ao clicar em **Testar Conexão TCP**, aparece `[TCP] Conexão aceita` no servidor. | A conexão TCP chegou ao servidor. | A comunicação entre computadores está funcionando. |
+| O cliente falha e não aparece nada no terminal do servidor. | A tentativa nem chegou ao servidor. | Verifique IP, rede, isolamento Wi‑Fi ou bloqueio de entrada. |
+| O cliente mostra “conexão recusada”. | O computador respondeu, mas não há servidor ouvindo naquela porta. | Confira se `tcp_server.py` está rodando e se a porta é a mesma. |
+| O cliente mostra “tempo esgotado”. | A rede não entregou a tentativa ou a resposta foi bloqueada. | Use IP manual, confirme a mesma rede e teste outro computador como servidor. |
 
-Depois, clique em **Listar Arquivos** para provar que a conexão funcionou. Em seguida, faça upload de um arquivo PDF ou CSV e mostre que ele aparece na lista. Por fim, faça download do mesmo arquivo e explique que o SHA-256 confirma se o arquivo chegou íntegro.
+## Sobre o botão “Localizar Servidor”
 
-## Resumo das melhorias desta versão
+A localização automática usa **broadcast UDP**. Em algumas redes Wi‑Fi de escolas, empresas ou laboratórios, o roteador pode bloquear broadcast entre clientes. Quando isso acontece, o botão **Localizar Servidor** pode falhar mesmo que o TCP funcione com IP manual.
 
-| Melhoria | Por que ajuda |
+Por isso, a ordem recomendada para teste é:
+
+| Ordem | Ação |
 |---|---|
-| Porta padrão alterada para `50000` | Evita conflitos com serviços conhecidos e facilita testes em laboratório. |
-| Servidor mostra os IPs locais | Evita confusão entre `127.0.0.1` e o IP real da rede. |
-| Botão “Localizar Servidor na Rede” | Tenta encontrar o servidor automaticamente via broadcast UDP. |
-| Cabeçalho de 8 bytes com tamanho do JSON | Garante leitura correta de mensagens grandes no TCP. |
-| Mensagens de erro mais explicativas | Ajuda a diagnosticar IP errado, porta errada ou servidor desligado. |
+| 1 | Rodar `tcp_server.py` no computador servidor. |
+| 2 | Copiar o IPv4 exibido no terminal do servidor. |
+| 3 | Digitar esse IPv4 manualmente no cliente. |
+| 4 | Clicar em **Testar Conexão TCP**. |
+| 5 | Se o teste TCP der certo, usar **Listar Arquivos**, **Upload** e **Download**. |
+
+## Se não funcionar entre dois computadores
+
+Se no mesmo computador funciona, mas entre dois computadores não funciona, a causa quase sempre está fora da lógica principal do programa. Os motivos mais comuns são: IP incorreto, computadores em redes diferentes, rede Wi‑Fi com isolamento entre clientes, porta diferente no cliente e no servidor, ou bloqueio de conexões de entrada no computador que executa o servidor.
+
+Uma estratégia prática é inverter os papéis: execute o `tcp_server.py` no outro computador e rode o `tcp_client.py` no seu. Se funcionar invertido, o problema está provavelmente no bloqueio de entrada do primeiro computador.
+
+## Protocolo usado pela aplicação
+
+As mensagens são enviadas em JSON, mas antes de cada JSON é enviado um cabeçalho binário de 8 bytes. Esse cabeçalho informa o tamanho da mensagem. Assim, o programa não depende de “chutar” onde o JSON termina.
+
+| Comando | Quem envia | Finalidade |
+|---|---|---|
+| `test_req` | Cliente | Testar se a conexão TCP está funcionando. |
+| `test_resp` | Servidor | Confirmar que o servidor recebeu a conexão. |
+| `list_req` | Cliente | Solicitar a lista de arquivos disponíveis. |
+| `list_resp` | Servidor | Responder com a lista de arquivos. |
+| `put_req` | Cliente | Enviar um arquivo ao servidor. |
+| `put_resp` | Servidor | Confirmar ou negar o upload. |
+| `get_req` | Cliente | Solicitar download de um arquivo. |
+| `get_resp` | Servidor | Enviar o arquivo solicitado. |
+
+## Observação importante para apresentação
+
+Se o professor perguntar por que a descoberta automática pode falhar, a resposta é: a descoberta usa broadcast UDP, e algumas redes bloqueiam broadcast entre clientes. Isso não invalida o protocolo TCP da aplicação. O teste mais importante é o botão **Testar Conexão TCP** usando o IPv4 real do servidor.
+
+Se o professor perguntar por que o TCP precisa de um cabeçalho de tamanho, a resposta é: TCP entrega um fluxo contínuo de bytes, não mensagens prontas. Portanto, a aplicação precisa definir onde cada mensagem começa e termina. O cabeçalho de 8 bytes resolve isso informando o tamanho exato do JSON que será recebido.
 
 ---
 

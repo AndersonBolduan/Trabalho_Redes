@@ -7,8 +7,8 @@ import socket
 import struct
 import threading
 
-# Tamanho do cabeçalho usado antes de cada JSON.
-# O cabeçalho terá 8 bytes e informará quantos bytes existem na mensagem JSON.
+# Cada mensagem JSON é enviada com um cabeçalho fixo de 8 bytes.
+# Esse cabeçalho informa o tamanho exato do JSON que virá depois.
 HEADER_SIZE = 8
 DEFAULT_HOST = "0.0.0.0"
 DEFAULT_PORT = 50000
@@ -31,17 +31,26 @@ class TCPServer:
         self.server_socket.bind((self.host, self.port))
         self.server_socket.listen(10)
 
-        print("=" * 70)
+        self.print_startup_info()
+
+    def print_startup_info(self):
+        print("=" * 78)
         print("SERVIDOR DE ARQUIVOS TCP - PARTE 2")
-        print("=" * 70)
-        print(f"Servidor escutando em: {self.host}:{self.port}")
+        print("=" * 78)
+        print(f"Servidor TCP escutando em: {self.host}:{self.port}")
         print(f"Pasta de armazenamento: {os.path.abspath(self.storage_dir)}")
-        print("\nUse, no cliente, um dos IPs abaixo como IP do servidor:")
-        for ip in self.get_local_ips():
+        print("\nNo cliente, use um dos endereços abaixo como IP do servidor:")
+
+        local_ips = self.get_local_ips()
+        for ip in local_ips:
             print(f"  - {ip}:{self.port}")
-        print("\nSe estiver testando no mesmo computador, use 127.0.0.1.")
-        print("Se estiver testando em outro computador da mesma rede, use o IP 192.168.x.x ou 10.x.x.x mostrado acima.")
-        print("=" * 70)
+
+        print("\nComo interpretar:")
+        print("  - 127.0.0.1 serve apenas para testar no MESMO computador.")
+        print("  - 192.168.x.x, 10.x.x.x ou 172.16-31.x.x são endereços para outro computador da mesma rede.")
+        print("  - Se o cliente de outro computador conectar, aparecerá aqui: [TCP] Conexão aceita...")
+        print("  - Se clicar em Localizar Servidor e aparecer aqui [UDP] Descoberta recebida, a descoberta chegou.")
+        print("=" * 78)
 
     def get_local_ips(self):
         ips = set()
@@ -50,7 +59,7 @@ class TCPServer:
             hostname = socket.gethostname()
             for info in socket.getaddrinfo(hostname, None, socket.AF_INET):
                 ip = info[4][0]
-                if not ip.startswith("127."):
+                if not ip.startswith("127.") and not ip.startswith("169.254."):
                     ips.add(ip)
         except OSError:
             pass
@@ -59,7 +68,7 @@ class TCPServer:
             temp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             temp_socket.connect(("8.8.8.8", 80))
             ip = temp_socket.getsockname()[0]
-            if not ip.startswith("127."):
+            if not ip.startswith("127.") and not ip.startswith("169.254."):
                 ips.add(ip)
             temp_socket.close()
         except OSError:
@@ -111,6 +120,17 @@ class TCPServer:
                 files.append(file_name)
         return sorted(files)
 
+    def handle_test_request(self, client_socket, address):
+        response = {
+            "cmd": "test_resp",
+            "status": "ok",
+            "message": "Conexão TCP com o servidor funcionando.",
+            "client_ip_seen_by_server": address[0],
+            "server_port": self.port,
+            "server_ips": self.get_local_ips()
+        }
+        self.send_json(client_socket, response)
+
     def handle_list_request(self, client_socket):
         response = {
             "cmd": "list_resp",
@@ -133,7 +153,7 @@ class TCPServer:
             })
             return
 
-        print(f"[*] Recebendo upload: {file_name}")
+        print(f"[UPLOAD] Recebendo arquivo: {file_name}")
         file_path = os.path.join(self.storage_dir, file_name)
 
         try:
@@ -145,19 +165,19 @@ class TCPServer:
             if calculated_hash == received_hash:
                 status = "ok"
                 message = "Upload concluído com sucesso."
-                print(f"[OK] Upload concluído: {file_name}")
+                print(f"[UPLOAD] OK: {file_name}")
             else:
                 status = "fail"
                 message = "Hash inconsistente. O arquivo foi descartado."
                 os.remove(file_path)
-                print(f"[ERRO] Hash inconsistente em: {file_name}")
+                print(f"[UPLOAD] ERRO DE HASH: {file_name}")
 
         except Exception as error:
             status = "fail"
             message = f"Erro ao salvar arquivo: {error}"
             if os.path.exists(file_path):
                 os.remove(file_path)
-            print(f"[ERRO] Falha no upload de {file_name}: {error}")
+            print(f"[UPLOAD] FALHA em {file_name}: {error}")
 
         response = {
             "cmd": "put_resp",
@@ -180,7 +200,7 @@ class TCPServer:
             })
             return
 
-        print(f"[*] Enviando download: {file_name}")
+        print(f"[DOWNLOAD] Enviando arquivo: {file_name}")
         file_hash = self.get_file_hash(file_path)
 
         with open(file_path, "rb") as file:
@@ -194,18 +214,22 @@ class TCPServer:
             "value": base64.b64encode(file_bytes).decode("utf-8")
         }
         self.send_json(client_socket, response)
-        print(f"[OK] Download enviado: {file_name}")
+        print(f"[DOWNLOAD] OK: {file_name}")
 
     def handle_client(self, client_socket, address):
-        print(f"[*] Conexão aceita de {address[0]}:{address[1]}")
+        print(f"[TCP] Conexão aceita de {address[0]}:{address[1]}")
         try:
             request = self.receive_json(client_socket)
             if request is None:
+                print(f"[TCP] Cliente {address[0]} fechou sem enviar requisição completa.")
                 return
 
             cmd = request.get("cmd")
+            print(f"[TCP] Comando recebido de {address[0]}: {cmd}")
 
-            if cmd == "list_req":
+            if cmd == "test_req":
+                self.handle_test_request(client_socket, address)
+            elif cmd == "list_req":
                 self.handle_list_request(client_socket)
             elif cmd == "put_req":
                 self.handle_upload_request(client_socket, request)
@@ -224,15 +248,16 @@ class TCPServer:
             print(f"[ERRO] Falha ao atender {address}: {error}")
         finally:
             client_socket.close()
-            print(f"[*] Conexão encerrada com {address[0]}:{address[1]}")
+            print(f"[TCP] Conexão encerrada com {address[0]}:{address[1]}")
 
     def discovery_responder(self):
         udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 
         try:
             udp_socket.bind(("", self.port))
-            print(f"[*] Descoberta automática ativa via UDP na porta {self.port}.")
+            print(f"[UDP] Descoberta automática ativa na porta {self.port}.")
         except OSError as error:
             print(f"[AVISO] Não foi possível ativar descoberta automática UDP: {error}")
             udp_socket.close()
@@ -244,6 +269,7 @@ class TCPServer:
                 message = data.decode("utf-8", errors="ignore")
 
                 if message == DISCOVERY_MESSAGE:
+                    print(f"[UDP] Descoberta recebida de {client_address[0]}:{client_address[1]}")
                     response = {
                         "service": DISCOVERY_MESSAGE,
                         "tcp_port": self.port,
@@ -279,7 +305,11 @@ class TCPServer:
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Servidor de arquivos TCP - Parte 2")
-    parser.add_argument("--host", default=DEFAULT_HOST, help="IP em que o servidor deve escutar. Use 0.0.0.0 para aceitar conexões da rede.")
+    parser.add_argument(
+        "--host",
+        default=DEFAULT_HOST,
+        help="IP em que o servidor deve escutar. Use 0.0.0.0 para aceitar conexões da rede."
+    )
     parser.add_argument("--port", type=int, default=DEFAULT_PORT, help="Porta TCP/UDP usada pelo servidor.")
     parser.add_argument("--storage", default=DEFAULT_STORAGE_DIR, help="Pasta onde os arquivos serão armazenados.")
     return parser.parse_args()
