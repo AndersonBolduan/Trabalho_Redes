@@ -13,7 +13,7 @@ HEADER_SIZE = 8
 DEFAULT_HOST = "0.0.0.0"
 DEFAULT_PORT = 50000
 DEFAULT_STORAGE_DIR = "server_storage"
-DISCOVERY_MESSAGE = "TCP_FILE_SERVER_DISCOVERY_V1"
+SUGGESTED_TEST_IP = "192.168.56.1"
 
 
 class TCPServer:
@@ -21,7 +21,6 @@ class TCPServer:
         self.host = host
         self.port = port
         self.storage_dir = storage_dir
-        self.running = True
 
         if not os.path.exists(self.storage_dir):
             os.makedirs(self.storage_dir)
@@ -39,17 +38,20 @@ class TCPServer:
         print("=" * 78)
         print(f"Servidor TCP escutando em: {self.host}:{self.port}")
         print(f"Pasta de armazenamento: {os.path.abspath(self.storage_dir)}")
-        print("\nNo cliente, use um dos endereços abaixo como IP do servidor:")
-
-        local_ips = self.get_local_ips()
-        for ip in local_ips:
+        print()
+        print("IMPORTANTE:")
+        print("  - A descoberta automática por UDP foi removida para este teste.")
+        print("  - A conexão agora é manual: o cliente deve informar IP e porta.")
+        print(f"  - Para o teste solicitado, tente usar no cliente: {SUGGESTED_TEST_IP}:{self.port}")
+        print()
+        print("IPs locais detectados neste computador:")
+        for ip in self.get_local_ips():
             print(f"  - {ip}:{self.port}")
-
-        print("\nComo interpretar:")
+        print()
+        print("Como interpretar:")
         print("  - 127.0.0.1 serve apenas para testar no MESMO computador.")
-        print("  - 192.168.x.x, 10.x.x.x ou 172.16-31.x.x são endereços para outro computador da mesma rede.")
-        print("  - Se o cliente de outro computador conectar, aparecerá aqui: [TCP] Conexão aceita...")
-        print("  - Se clicar em Localizar Servidor e aparecer aqui [UDP] Descoberta recebida, a descoberta chegou.")
+        print("  - Entre computadores diferentes, use o IPv4 da interface de rede do servidor.")
+        print("  - Se o cliente conectar, aparecerá aqui: [TCP] Conexão aceita...")
         print("=" * 78)
 
     def get_local_ips(self):
@@ -124,7 +126,7 @@ class TCPServer:
         response = {
             "cmd": "test_resp",
             "status": "ok",
-            "message": "Conexão TCP com o servidor funcionando.",
+            "message": "Conexão TCP manual com o servidor funcionando.",
             "client_ip_seen_by_server": address[0],
             "server_port": self.port,
             "server_ips": self.get_local_ips()
@@ -250,43 +252,7 @@ class TCPServer:
             client_socket.close()
             print(f"[TCP] Conexão encerrada com {address[0]}:{address[1]}")
 
-    def discovery_responder(self):
-        udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-
-        try:
-            udp_socket.bind(("", self.port))
-            print(f"[UDP] Descoberta automática ativa na porta {self.port}.")
-        except OSError as error:
-            print(f"[AVISO] Não foi possível ativar descoberta automática UDP: {error}")
-            udp_socket.close()
-            return
-
-        while self.running:
-            try:
-                data, client_address = udp_socket.recvfrom(1024)
-                message = data.decode("utf-8", errors="ignore")
-
-                if message == DISCOVERY_MESSAGE:
-                    print(f"[UDP] Descoberta recebida de {client_address[0]}:{client_address[1]}")
-                    response = {
-                        "service": DISCOVERY_MESSAGE,
-                        "tcp_port": self.port,
-                        "server_ips": self.get_local_ips()
-                    }
-                    udp_socket.sendto(json.dumps(response).encode("utf-8"), client_address)
-            except OSError:
-                break
-            except Exception as error:
-                print(f"[AVISO] Erro na descoberta automática: {error}")
-
-        udp_socket.close()
-
     def run(self):
-        discovery_thread = threading.Thread(target=self.discovery_responder, daemon=True)
-        discovery_thread.start()
-
         try:
             while True:
                 client_socket, address = self.server_socket.accept()
@@ -299,7 +265,6 @@ class TCPServer:
         except KeyboardInterrupt:
             print("\n[*] Servidor encerrado pelo usuário.")
         finally:
-            self.running = False
             self.server_socket.close()
 
 
@@ -310,7 +275,7 @@ def parse_arguments():
         default=DEFAULT_HOST,
         help="IP em que o servidor deve escutar. Use 0.0.0.0 para aceitar conexões da rede."
     )
-    parser.add_argument("--port", type=int, default=DEFAULT_PORT, help="Porta TCP/UDP usada pelo servidor.")
+    parser.add_argument("--port", type=int, default=DEFAULT_PORT, help="Porta TCP usada pelo servidor.")
     parser.add_argument("--storage", default=DEFAULT_STORAGE_DIR, help="Pasta onde os arquivos serão armazenados.")
     return parser.parse_args()
 

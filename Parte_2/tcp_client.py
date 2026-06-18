@@ -10,25 +10,25 @@ from tkinter import filedialog, messagebox
 # Cada mensagem JSON é enviada com um cabeçalho fixo de 8 bytes.
 # Esse cabeçalho informa o tamanho exato do JSON que virá depois.
 HEADER_SIZE = 8
+DEFAULT_HOST = "192.168.56.1"
 DEFAULT_PORT = 50000
-DISCOVERY_MESSAGE = "TCP_FILE_SERVER_DISCOVERY_V1"
 
 
 class TCPClientGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Cliente de Arquivos TCP - Parte 2")
-        self.root.geometry("820x560")
+        self.root.geometry("780x540")
         self.setup_ui()
 
     def setup_ui(self):
-        conn_frame = tk.LabelFrame(self.root, text="Conexão com o Servidor", padx=10, pady=10)
+        conn_frame = tk.LabelFrame(self.root, text="Conexão Manual com o Servidor", padx=10, pady=10)
         conn_frame.pack(fill="x", padx=10, pady=8)
 
         tk.Label(conn_frame, text="IP do Servidor:").grid(row=0, column=0, sticky="w", padx=(0, 5))
         self.ent_host = tk.Entry(conn_frame)
         self.ent_host.grid(row=0, column=1, padx=5, sticky="ew")
-        self.ent_host.insert(0, "127.0.0.1")
+        self.ent_host.insert(0, DEFAULT_HOST)
 
         tk.Label(conn_frame, text="Porta:").grid(row=0, column=2, sticky="w", padx=(10, 5))
         self.ent_port = tk.Entry(conn_frame, width=10)
@@ -38,17 +38,14 @@ class TCPClientGUI:
         self.btn_test = tk.Button(conn_frame, text="Testar Conexão TCP", command=self.test_connection)
         self.btn_test.grid(row=0, column=4, padx=(10, 0), sticky="ew")
 
-        self.btn_discover = tk.Button(conn_frame, text="Localizar Servidor", command=self.discover_server)
-        self.btn_discover.grid(row=0, column=5, padx=(8, 0), sticky="ew")
-
         self.btn_diagnostic = tk.Button(conn_frame, text="Diagnóstico", command=self.show_diagnostic)
-        self.btn_diagnostic.grid(row=0, column=6, padx=(8, 0), sticky="ew")
+        self.btn_diagnostic.grid(row=0, column=5, padx=(8, 0), sticky="ew")
 
         help_text = (
-            "Mesmo computador: 127.0.0.1.  |  "
-            "Outro computador: use o IPv4 mostrado no terminal do servidor e clique em Testar Conexão TCP."
+            "Teste manual: servidor em 192.168.56.1 e porta 50000. "
+            "A descoberta automática por UDP foi removida desta versão."
         )
-        tk.Label(conn_frame, text=help_text, fg="gray").grid(row=1, column=0, columnspan=7, sticky="w", pady=(6, 0))
+        tk.Label(conn_frame, text=help_text, fg="gray").grid(row=1, column=0, columnspan=6, sticky="w", pady=(6, 0))
 
         conn_frame.columnconfigure(1, weight=1)
 
@@ -75,7 +72,7 @@ class TCPClientGUI:
         self.file_listbox.config(yscrollcommand=scrollbar.set)
 
         self.status_var = tk.StringVar()
-        self.status_var.set("Pronto. Inicie o servidor primeiro. Para outro PC, use o IP mostrado no terminal do servidor.")
+        self.status_var.set("Pronto. IP padrão de teste: 192.168.56.1:50000. Clique em Testar Conexão TCP.")
         status_label = tk.Label(self.root, textvariable=self.status_var, anchor="w", relief="sunken", padx=8)
         status_label.pack(fill="x", padx=10, pady=(0, 8))
 
@@ -153,16 +150,6 @@ class TCPClientGUI:
 
         return sorted(ips)
 
-    def get_broadcast_targets(self):
-        targets = {"255.255.255.255"}
-
-        for ip in self.get_local_ips():
-            parts = ip.split(".")
-            if len(parts) == 4:
-                targets.add(f"{parts[0]}.{parts[1]}.{parts[2]}.255")
-
-        return sorted(targets)
-
     def get_file_hash(self, file_path):
         sha256_hash = hashlib.sha256()
         with open(file_path, "rb") as file:
@@ -177,7 +164,7 @@ class TCPClientGUI:
         if "timed out" in lower_text or "tempo" in lower_text:
             return (
                 "Tempo esgotado. O cliente tentou chegar ao servidor, mas não recebeu resposta. "
-                "Isso costuma indicar IP errado, computadores em redes diferentes, bloqueio de entrada no servidor ou isolamento do Wi-Fi."
+                "Isso costuma indicar IP errado, computadores em redes diferentes, bloqueio de entrada no servidor ou isolamento da rede."
             )
 
         if "connection refused" in lower_text or "actively refused" in lower_text or "10061" in lower_text:
@@ -187,9 +174,7 @@ class TCPClientGUI:
             )
 
         if "unreachable" in lower_text or "10065" in lower_text or "10051" in lower_text:
-            return (
-                "Rede inalcançável. O IP informado provavelmente não pertence à mesma rede acessível pelo seu computador."
-            )
+            return "Rede inalcançável. O IP informado provavelmente não pertence à mesma rede acessível pelo seu computador."
 
         return "Erro de conexão não classificado. Confira IP, porta, rede e se o servidor está em execução."
 
@@ -199,11 +184,11 @@ class TCPClientGUI:
             f"Erro ao {action}: {error}\n\n"
             f"Interpretação: {explanation}\n\n"
             "Checklist rápido:\n"
-            "1. No computador servidor, o terminal mostra algum IP 192.168.x.x, 10.x.x.x ou 172.16-31.x.x?\n"
-            "2. Esse IP foi digitado no cliente do outro computador? Não use 127.0.0.1 entre computadores diferentes.\n"
-            "3. A porta do cliente é exatamente a mesma porta do servidor?\n"
+            "1. No computador servidor, o tcp_server.py está aberto?\n"
+            "2. O servidor está escutando na porta 50000?\n"
+            "3. No cliente, o IP está como 192.168.56.1 e a porta como 50000?\n"
             "4. Quando você clica em Testar Conexão TCP, aparece alguma linha [TCP] no terminal do servidor?\n"
-            "5. Se não aparece nada no servidor, o pacote nem chegou nele; isso indica IP errado, rede isolada ou bloqueio de entrada."
+            "5. Se não aparece nada no servidor, a tentativa não chegou nele: IP errado, rota de rede ou bloqueio de entrada."
         )
         messagebox.showerror("Erro de conexão", message)
 
@@ -212,7 +197,7 @@ class TCPClientGUI:
         try:
             host = self.get_host()
             port = self.get_port()
-            self.status_var.set(f"Testando conexão TCP com {host}:{port}...")
+            self.status_var.set(f"Testando conexão TCP manual com {host}:{port}...")
             self.root.update_idletasks()
 
             tcp_socket = self.get_socket(timeout=8.0)
@@ -223,7 +208,7 @@ class TCPClientGUI:
                 self.status_var.set(f"Conexão TCP OK com {host}:{port}.")
                 messagebox.showinfo(
                     "Conexão funcionando",
-                    "Conexão TCP com o servidor funcionando!\n\n"
+                    "Conexão TCP manual com o servidor funcionando!\n\n"
                     f"Mensagem do servidor: {response.get('message')}\n"
                     f"Seu IP visto pelo servidor: {response.get('client_ip_seen_by_server')}\n"
                     f"IPs do servidor informados: {', '.join(response.get('server_ips', []))}"
@@ -238,101 +223,31 @@ class TCPClientGUI:
             if tcp_socket is not None:
                 tcp_socket.close()
 
-    def discover_server(self):
-        udp_socket = None
-        responses = []
-        errors = []
-
-        try:
-            port = self.get_port()
-            targets = self.get_broadcast_targets()
-
-            self.status_var.set("Procurando servidor por broadcast UDP...")
-            self.root.update_idletasks()
-
-            udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-            udp_socket.settimeout(1.2)
-
-            for target in targets:
-                try:
-                    udp_socket.sendto(DISCOVERY_MESSAGE.encode("utf-8"), (target, port))
-                    errors.append(f"Enviado broadcast para {target}:{port}")
-                except Exception as send_error:
-                    errors.append(f"Falha ao enviar para {target}:{port}: {send_error}")
-
-            while True:
-                try:
-                    data, address = udp_socket.recvfrom(4096)
-                    response = json.loads(data.decode("utf-8"))
-                    if response.get("service") == DISCOVERY_MESSAGE:
-                        responses.append((address, response))
-                except socket.timeout:
-                    break
-
-            if not responses:
-                raise TimeoutError(
-                    "Nenhum servidor respondeu ao broadcast UDP. Isso não prova que o TCP está bloqueado; "
-                    "apenas indica que a descoberta automática não recebeu resposta. Use o IP manual e clique em Testar Conexão TCP."
-                )
-
-            address, response = responses[0]
-            server_ip = address[0]
-            discovered_port = response.get("tcp_port", port)
-
-            self.ent_host.delete(0, tk.END)
-            self.ent_host.insert(0, server_ip)
-            self.ent_port.delete(0, tk.END)
-            self.ent_port.insert(0, str(discovered_port))
-
-            self.status_var.set(f"Servidor localizado em {server_ip}:{discovered_port}. Teste TCP antes de enviar arquivos.")
-            messagebox.showinfo(
-                "Servidor encontrado",
-                f"Servidor localizado em {server_ip}:{discovered_port}.\n\n"
-                "Agora clique em Testar Conexão TCP para confirmar se o TCP também passa pela rede."
-            )
-
-        except Exception as error:
-            self.status_var.set("Descoberta automática não encontrou servidor.")
-            messagebox.showwarning(
-                "Servidor não encontrado por descoberta automática",
-                "Não consegui localizar o servidor automaticamente por broadcast UDP.\n\n"
-                "Isso é comum em redes Wi-Fi de laboratório, porque algumas redes bloqueiam broadcast entre clientes.\n\n"
-                "Faça o teste manual:\n"
-                "1. Veja o IPv4 que aparece no terminal do tcp_server.py.\n"
-                "2. Digite esse IPv4 no campo IP do Servidor.\n"
-                "3. Clique em Testar Conexão TCP.\n\n"
-                f"Detalhe técnico: {error}"
-            )
-        finally:
-            if udp_socket is not None:
-                udp_socket.close()
-
     def show_diagnostic(self):
         host = self.ent_host.get().strip() or "não informado"
         port = self.ent_port.get().strip() or "não informada"
         local_ips = self.get_local_ips()
-        targets = self.get_broadcast_targets()
 
         diagnostic = (
-            "DIAGNÓSTICO DE REDE\n"
-            "===================\n\n"
-            f"IP do servidor configurado no cliente: {host}\n"
+            "DIAGNÓSTICO DE CONEXÃO MANUAL\n"
+            "=============================\n\n"
+            f"IP configurado no cliente: {host}\n"
             f"Porta configurada no cliente: {port}\n\n"
+            "Configuração padrão desta versão de teste:\n"
+            f"  - IP do servidor: {DEFAULT_HOST}\n"
+            f"  - Porta do servidor: {DEFAULT_PORT}\n\n"
             "IPs locais detectados neste computador cliente:\n"
             f"{chr(10).join('  - ' + ip for ip in local_ips) if local_ips else '  - Nenhum IP local detectado'}\n\n"
-            "Endereços de broadcast que o botão Localizar Servidor tenta usar:\n"
-            f"{chr(10).join('  - ' + target for target in targets)}\n\n"
             "Como diagnosticar no terminal do servidor:\n"
-            "  - Se aparecer [UDP] Descoberta recebida, o broadcast chegou ao servidor.\n"
-            "  - Se aparecer [TCP] Conexão aceita, o TCP chegou ao servidor.\n"
-            "  - Se não aparecer nada, o pacote não chegou: IP errado, rede isolada ou bloqueio de entrada.\n\n"
-            "Atenção: 127.0.0.1 só serve para o mesmo computador. Entre computadores diferentes, use o IPv4 exibido no servidor."
+            "  - Se aparecer [TCP] Conexão aceita, a conexão chegou ao servidor.\n"
+            "  - Se não aparecer nada, o pacote não chegou ao servidor.\n"
+            "  - Nesta versão, não existe descoberta automática por UDP. O teste é somente por IP e porta.\n\n"
+            "Atenção: 127.0.0.1 só serve para o mesmo computador. Para o teste solicitado, use 192.168.56.1:50000."
         )
 
         diagnostic_window = tk.Toplevel(self.root)
-        diagnostic_window.title("Diagnóstico de Rede")
-        diagnostic_window.geometry("680x460")
+        diagnostic_window.title("Diagnóstico de Conexão Manual")
+        diagnostic_window.geometry("680x420")
 
         text = tk.Text(diagnostic_window, wrap="word")
         text.pack(fill="both", expand=True, padx=10, pady=10)
