@@ -1,59 +1,108 @@
-# Servidor e Cliente de Arquivos TCP (Parte 2 - AV3) - Versão Corrigida
+# Parte 2 — Cliente e Servidor de Arquivos via TCP
 
-Esta é a implementação da Parte 2 do trabalho de Redes de Computadores I, que consiste em um servidor e um cliente de arquivos baseados no protocolo TCP, utilizando um protocolo de aplicação customizado em formato JSON.
+Esta pasta contém a implementação da **Parte 2** do trabalho de Redes de Computadores. A aplicação é composta por dois programas: um **servidor TCP**, responsável por armazenar e enviar arquivos, e um **cliente com interface gráfica**, responsável por listar, enviar e baixar arquivos do servidor.
 
-**Esta versão inclui correções para o erro `WinError 10054` que ocorria ao tentar fazer upload de arquivos grandes (como PDFs), garantindo um tratamento mais robusto de mensagens JSON extensas.**
+A versão atual foi revisada para facilitar o uso entre **dois computadores diferentes na mesma rede local**, sem depender de alteração manual no Painel de Controle. O servidor agora exibe automaticamente os IPs locais que podem ser usados pelo cliente, o cliente possui um botão para tentar localizar o servidor na rede e a troca de mensagens TCP usa um protocolo mais robusto com cabeçalho de tamanho.
 
-## Requisitos
+## Arquivos
 
-*   **Python 3.x**
-*   **tkinter** (para a interface gráfica do cliente)
+| Arquivo | Função |
+|---|---|
+| `tcp_server.py` | Programa que deve ser executado no computador que armazenará os arquivos. |
+| `tcp_client.py` | Programa com interface gráfica usado para listar, enviar e baixar arquivos. |
+| `server_storage/` | Pasta criada automaticamente pelo servidor para guardar os arquivos recebidos. |
 
-## Estrutura dos Arquivos
+## Como testar no mesmo computador
 
-*   `tcp_server.py`: Código-fonte do servidor TCP (atualizado).
-*   `tcp_client.py`: Código-fonte do cliente TCP com interface gráfica (atualizado).
-*   `server_storage/`: Diretório criado automaticamente pelo servidor para armazenar os arquivos enviados.
+Para testar tudo em uma única máquina, abra dois terminais na pasta da Parte 2. No primeiro terminal, execute o servidor:
 
-## Como Executar
+```bash
+python tcp_server.py
+```
 
-### 1. Iniciando o Servidor
+No segundo terminal, execute o cliente:
 
-O servidor deve ser iniciado primeiro. Ele não possui interface gráfica e roda diretamente no terminal.
+```bash
+python tcp_client.py
+```
 
-1.  Abra um terminal ou prompt de comando.
-2.  Navegue até o diretório onde os arquivos estão salvos.
-3.  Execute o comando:
-    ```bash
-    python tcp_server.py
-    ```
-    *(O servidor ficará aguardando conexões na porta 6000)*
+Na interface do cliente, mantenha o IP como `127.0.0.1` e a porta como `50000`. Depois clique em **Listar Arquivos**, **Fazer Upload** ou **Fazer Download**.
 
-### 2. Iniciando o Cliente
+## Como conectar dois computadores na mesma rede
 
-Com o servidor rodando, você pode iniciar um ou mais clientes.
+No computador que será o servidor, execute:
 
-1.  Abra um **novo** terminal ou prompt de comando.
-2.  Navegue até o diretório onde os arquivos estão salvos.
-3.  Execute o comando:
-    ```bash
-    python tcp_client.py
-    ```
+```bash
+python tcp_server.py
+```
 
-## Funcionalidades da Interface do Cliente
+Ao iniciar, o servidor mostrará uma saída parecida com esta:
 
-*   **Conexão**: Permite definir o IP e a porta do servidor (padrão: `127.0.0.1` e `6000`).
-*   **Listar Arquivos**: Solicita ao servidor a lista de arquivos disponíveis e a exibe na tela.
-*   **Fazer Upload**: Abre uma janela para selecionar um arquivo do seu computador e o envia para o servidor. O arquivo será salvo na pasta `server_storage`.
-*   **Fazer Download**: Selecione um arquivo na lista exibida e clique neste botão para baixá-lo. Você poderá escolher onde salvar o arquivo no seu computador.
+```text
+Use, no cliente, um dos IPs abaixo como IP do servidor:
+  - 192.168.1.34:50000
+```
 
-## Detalhes Técnicos Implementados (Atualizações)
+No outro computador, execute:
 
-*   **Protocolo TCP**: A comunicação é feita via TCP, garantindo a entrega ordenada e confiável dos dados, conforme ensinado na Unidade 5.
-*   **Tratamento Robusto de Mensagens Grandes**: A lógica de recebimento de dados tanto no cliente quanto no servidor foi aprimorada para ler o fluxo de bytes do socket até que uma mensagem JSON completa seja detectada. Isso resolve o problema de `WinError 10054` ao lidar com arquivos grandes que, quando codificados em Base64 e inseridos no JSON, excedem o buffer de leitura inicial.
-*   **Formato JSON**: Todas as requisições e respostas seguem rigorosamente o layout JSON especificado no documento AV3.
-*   **Hash SHA-256**: A integridade dos arquivos é verificada usando o algoritmo SHA-256. Se houver inconsistência no hash durante o upload ou download, uma mensagem de erro é exibida e o arquivo corrompido é descartado.
-*   **Base64**: O conteúdo binário dos arquivos é codificado em Base64 para ser transmitido com segurança dentro do payload JSON.
+```bash
+python tcp_client.py
+```
+
+Na interface do cliente, coloque no campo **IP do Servidor** o IPv4 mostrado no terminal do servidor, por exemplo `192.168.1.34`. A porta deve ser a mesma exibida pelo servidor, por padrão `50000`.
+
+Você também pode clicar no botão **Localizar Servidor na Rede**. Esse botão envia uma mensagem de descoberta via broadcast UDP na rede local. Se a rede permitir broadcast, o cliente preencherá automaticamente o IP e a porta do servidor.
+
+## Importante sobre bloqueios de rede
+
+Esta versão foi ajustada para funcionar melhor em laboratório, usando uma porta alta (`50000`), escutando em todas as interfaces de rede (`0.0.0.0`) e oferecendo descoberta automática. Mesmo assim, existe um limite técnico: se a política da máquina ou da rede bloquear totalmente conexões de entrada, nenhum código consegue “furar” esse bloqueio sozinho.
+
+Na prática, se outros alunos estão conseguindo sem abrir regra no Painel de Controle, provavelmente a rede permite conexões locais ou o Windows já autorizou o Python anteriormente. Com esta versão, o teste fica mais simples porque o servidor mostra o IP correto e o cliente tenta encontrá-lo automaticamente.
+
+## Comandos úteis
+
+Se quiser usar outra porta, execute o servidor assim:
+
+```bash
+python tcp_server.py --port 50001
+```
+
+Depois, no cliente, use a mesma porta `50001`.
+
+Se quiser mudar a pasta onde os arquivos ficam armazenados no servidor, execute:
+
+```bash
+python tcp_server.py --storage meus_arquivos
+```
+
+## Protocolo de comunicação
+
+A comunicação usa **TCP**. Cada mensagem enviada pelo cliente ou pelo servidor possui duas partes: primeiro, um cabeçalho de 8 bytes informando o tamanho da mensagem; depois, o JSON em UTF-8. Isso evita o problema clássico de tentar ler uma mensagem TCP “pela metade”, principalmente quando o arquivo é grande.
+
+| Operação | Requisição | Resposta |
+|---|---|---|
+| Listar arquivos | `list_req` | `list_resp` com a lista de arquivos. |
+| Enviar arquivo | `put_req` com nome, hash e conteúdo em Base64 | `put_resp` com status `ok` ou `fail`. |
+| Baixar arquivo | `get_req` com o nome do arquivo | `get_resp` com hash e conteúdo em Base64. |
+
+O conteúdo dos arquivos é convertido para **Base64** para caber dentro do JSON. A integridade é verificada com **SHA-256**: o cliente calcula o hash antes do upload, o servidor recalcula depois de receber, e no download o cliente também confere se o arquivo recebido tem o mesmo hash enviado pelo servidor.
+
+## Passo a passo recomendado para apresentação
+
+Primeiro, abra o servidor no computador principal e mostre que ele está escutando em `0.0.0.0:50000`. Explique que `0.0.0.0` significa que o programa aceita conexões vindas das interfaces de rede da máquina. Em seguida, mostre o IP local impresso no terminal, como `192.168.x.x`, e use esse endereço no cliente executado em outro computador.
+
+Depois, clique em **Listar Arquivos** para provar que a conexão funcionou. Em seguida, faça upload de um arquivo PDF ou CSV e mostre que ele aparece na lista. Por fim, faça download do mesmo arquivo e explique que o SHA-256 confirma se o arquivo chegou íntegro.
+
+## Resumo das melhorias desta versão
+
+| Melhoria | Por que ajuda |
+|---|---|
+| Porta padrão alterada para `50000` | Evita conflitos com serviços conhecidos e facilita testes em laboratório. |
+| Servidor mostra os IPs locais | Evita confusão entre `127.0.0.1` e o IP real da rede. |
+| Botão “Localizar Servidor na Rede” | Tenta encontrar o servidor automaticamente via broadcast UDP. |
+| Cabeçalho de 8 bytes com tamanho do JSON | Garante leitura correta de mensagens grandes no TCP. |
+| Mensagens de erro mais explicativas | Ajuda a diagnosticar IP errado, porta errada ou servidor desligado. |
 
 ---
-Desenvolvido por Manus AI para fins acadêmicos.
+
+Autor: **Manus AI**
