@@ -1,0 +1,16 @@
+{
+    "port": 52000,
+    "admin_user": "admin",
+    "admin_pass": "admin456",
+    "filial_name": "Filial 2 - Florianopolis",
+    "id": [
+        "sensor_light_escritorio",
+        "actuator_light_escritorio",
+        "sensor_ac_escritorio",
+        "actuator_ac_escritorio",
+        "sensor_light_deposito",
+        "actuator_light_deposito",
+        "sensor_ac_deposito",
+        "actuator_ac_deposito"
+    ]
+}

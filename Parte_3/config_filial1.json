@@ -1,0 +1,16 @@
+{
+    "port": 51000,
+    "admin_user": "admin",
+    "admin_pass": "admin123",
+    "filial_name": "Filial 1 - Lages",
+    "id": [
+        "sensor_light_sala_reunioes",
+        "actuator_light_sala_reunioes",
+        "sensor_ac_sala_reunioes",
+        "actuator_ac_sala_reunioes",
+        "sensor_light_recepcao",
+        "actuator_light_recepcao",
+        "sensor_ac_recepcao",
+        "actuator_ac_recepcao"
+    ]
+}
